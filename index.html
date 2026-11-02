@@ -62,7 +62,7 @@
         </div>
         <div class="notice hidden" id="readonly-notice">
           <span class="notice-icon">⌑</span>
-          <div class="notice-copy"><strong>Tuần đã khép lại · đã chia sẻ</strong><span>Bạn vẫn đọc lại bài của mình và bài của đối phương. Các bài cũ chỉ đọc.</span></div>
+          <div class="notice-copy"><strong>Tuần đã khép lại · đã chia sẻ</strong><span>Bạn vẫn có thể viết bù bài cho tuần này; bài viết bù sẽ hiện ngay cho đối phương.</span></div>
         </div>
 
         <div class="layout">
@@ -73,6 +73,8 @@
                 <div><h2 id="compose-title">Viết bài mới</h2><p class="card-subtitle">Viết bao nhiêu bài tùy thích; người kia sẽ đọc khi tuần khép lại.</p><button class="tiny-button hidden" id="cancel-edit" type="button">← Thôi sửa, viết bài mới</button></div>
                 <span class="mood-tag" id="compose-week-tag">Tuần này</span>
               </div>
+              <label class="card-subtitle" for="entry-date">Bài này thuộc ngày (chọn ngày cũ để viết bù cho tuần trước)</label>
+              <input class="date-input" type="date" id="entry-date">
               <textarea id="entry-text" maxlength="5000" placeholder="Hôm nay của bạn thế nào? Ghi lại những điều muốn chia sẻ khi đến lúc..."></textarea>
               <div class="form-row">
                 <select class="select-mood" id="mood-select" aria-label="Chọn tâm trạng">

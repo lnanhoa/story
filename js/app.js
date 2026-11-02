@@ -115,6 +115,21 @@
   function dateKey(date) {
     return new Date(date.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
   }
+  function todayKey() {
+    return dateKey(new Date());
+  }
+  function weekOfDateKey(key) {
+    return weekKey(new Date(`${key}T00:00:00Z`));
+  }
+  function offsetForDate(key) {
+    const target = weekStart(new Date(`${key}T00:00:00Z`));
+    const current = weekStart(new Date(`${todayKey()}T00:00:00Z`));
+    return Math.round((target - current) / 604800000);
+  }
+  // Bài sửa/xóa được trong tuần mà nó được viết (khớp policy trên database).
+  function isEditable(entry) {
+    return Boolean(entry && entry.author === currentUser && weekOfDateKey(dateKey(new Date(entry.createdAt))) === weekOfDateKey(todayKey()));
+  }
   function entryDateKey(entry) {
     return entry.entryDate || dateKey(new Date(entry.createdAt));
   }
@@ -159,7 +174,6 @@
     $("next-week").disabled = weekOffset >= 0;
     $("next-week").style.opacity = weekOffset >= 0 ? ".45" : "1";
     const unlock = unlockAt(key);
-    $("compose-card").classList.toggle("hidden", !isCurrent);
     $("readonly-notice").classList.toggle("hidden", isCurrent);
     $("week-notice").classList.toggle("hidden", !isCurrent);
     $("compose-week-tag").textContent = key;
@@ -168,7 +182,6 @@
       $("notice-detail").textContent = "Bài tuần này chỉ người viết xem được cho đến 00:00 thứ Hai tuần sau (GMT+7).";
       $("countdown").textContent = countdown(unlock);
     }
-    $("save-entry").disabled = !isCurrent;
     renderComposer(key);
     renderEntries(key, unlock);
   }
@@ -191,9 +204,8 @@
         const card = `<article class="card entry-card ${locked ? "locked-entry" : "empty-entry"}"><div class="card-head"><div><p class="card-subtitle">${locked ? "Bài viết đang được giữ riêng tư." : "Chưa có bài nhật ký tuần này."}</p></div><span class="mood-tag">${locked ? "⌑ Riêng tư" : "✧ Còn trống"}</span></div><div class="entry-body">${locked ? `Các bài sẽ tự mở ${fmtDate(unlock, { day: "numeric", month: "long" })} lúc 00:00 (GMT+7).` : "Một tuần mới đang chờ được ghi lại."}</div></article>`;
         return `<div class="entry-column">${title}${card}</div>`;
       }
-      const editable = mine && weekOffset === 0;
       const cards = entries.map(entry => {
-        const action = editable
+        const action = mine && isEditable(entry)
           ? `<button class="tiny-button" data-edit="${entry.id}">Chỉnh sửa</button><button class="tiny-button" data-delete="${entry.id}">Xóa</button>`
           : `<span class="entry-date">${mine ? "Bài của bạn · chỉ đọc" : "Đã mở khóa · chỉ đọc"}</span>`;
         return `<article class="card entry-card"><div class="card-head"><div><p class="entry-date">${fmtDate(new Date(entry.createdAt), { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}</p></div><span class="mood-tag">${entry.mood} ${moodLabel(entry.mood)}</span></div><div class="entry-body">${escapeHtml(entry.text)}${mediaMarkup(entry)}</div><div class="entry-footer">${action}</div></article>`;
@@ -256,8 +268,19 @@
     $("save-entry").dataset.edit = entry?.id || "";
     $("compose-title").textContent = entry ? `Sửa bài ${fmtDate(new Date(entry.createdAt), { weekday: "long", hour: "2-digit", minute: "2-digit" })}` : "Viết bài mới";
     $("cancel-edit").classList.toggle("hidden", !entry);
-    $("compose-week-tag").textContent = week;
+    // Mặc định: hôm nay nếu đang xem tuần này, Chủ nhật của tuần đang xem nếu là tuần cũ.
+    const sunday = weekStart(currentWeekDate());
+    sunday.setUTCDate(sunday.getUTCDate() + 6);
+    const defaultDate = weekOffset === 0 ? todayKey() : dateKey(sunday);
+    $("entry-date").max = todayKey();
+    $("entry-date").value = entry ? entryDateKey(entry) : defaultDate;
+    $("entry-date").disabled = Boolean(entry);
+    updateComposeWeekTag();
     renderMediaPreview(entry?.media || []);
+  }
+  function updateComposeWeekTag() {
+    const key = $("entry-date").value;
+    $("compose-week-tag").textContent = key ? weekOfDateKey(key) : "Chọn ngày";
   }
   function renderMediaPreview(saved = []) {
     const items = saved.map((item, index) => ({ ...item, savedIndex: index }));
@@ -273,12 +296,12 @@
           : item.type === "audio" && (item.data || item.preview)
             ? `<audio class="entry-audio" controls src="${item.data || item.preview}" aria-label="Voice chat"></audio>`
             : `<span class="media-chip">${item.type === "audio" ? "♫" : "▧"} ${escapeHtml(item.name)}</span>`;
-      const remove = item.savedIndex !== undefined && weekOffset === 0 ? `<button type="button" class="remove-attachment" data-remove-media="${item.savedIndex}" aria-label="Xóa tệp đính kèm">×</button>` : "";
+      const remove = item.savedIndex !== undefined && isEditable(editingEntry()) ? `<button type="button" class="remove-attachment" data-remove-media="${item.savedIndex}" aria-label="Xóa tệp đính kèm">×</button>` : "";
       return `<span class="attachment-item">${content}${remove}</span>`;
     }).join("");
     $("media-preview").querySelectorAll("[data-remove-media]").forEach(button => button.addEventListener("click", async () => {
       const entry = editingEntry();
-      if (!entry || weekOffset !== 0) return;
+      if (!isEditable(entry)) return;
       const media = entry.media.filter((_, index) => index !== Number(button.dataset.removeMedia));
       const removed = entry.media[Number(button.dataset.removeMedia)];
       const { error } = await db.from("journal_entries").update({ media: media.map(toStoredMedia) }).eq("id", entry.id);
@@ -366,9 +389,9 @@
     return path;
   }
   $("save-entry").addEventListener("click", async () => {
-    if (weekOffset !== 0) return notify("Nhật ký của tuần cũ chỉ được xem, không thể chỉnh sửa.");
     if (mediaRecorder?.state === "recording") return notify("Hãy dừng ghi âm trước khi lưu nhật ký.");
-    const week = weekKey(currentWeekDate());
+    const entryDate = $("entry-date").value;
+    if (!editingEntry() && (!entryDate || entryDate > todayKey())) return notify("Hãy chọn một ngày không ở tương lai.");
     const text = $("entry-text").value.trim();
     if (!text && selectedImages.length === 0 && !selectedAudio && !recordedAudio && selectedStickers.length === 0) return notify("Hãy viết vài dòng hoặc thêm một kỷ niệm nhé.");
     const button = $("save-entry"); button.disabled = true;
@@ -377,9 +400,9 @@
       const existing = editingEntry();
       const savedMedia = existing?.media || [];
       const savedImages = savedMedia.filter(item => item.type === "image").length;
-      if (savedImages + selectedImages.length > 3) throw new Error("Mỗi tuần chỉ đính kèm tối đa 3 ảnh hoặc GIF.");
-      if (savedMedia.some(item => item.type === "audio") && (selectedAudio || recordedAudio)) throw new Error("Mỗi tuần chỉ có thể lưu một tệp voice chat.");
-      if (savedMedia.filter(item => item.type === "sticker").length + selectedStickers.length > 3) throw new Error("Mỗi tuần chọn tối đa 3 sticker.");
+      if (savedImages + selectedImages.length > 3) throw new Error("Mỗi bài chỉ đính kèm tối đa 3 ảnh hoặc GIF.");
+      if (savedMedia.some(item => item.type === "audio") && (selectedAudio || recordedAudio)) throw new Error("Mỗi bài chỉ có thể lưu một tệp voice chat.");
+      if (savedMedia.filter(item => item.type === "sticker").length + selectedStickers.length > 3) throw new Error("Mỗi bài chọn tối đa 3 sticker.");
       for (const file of selectedImages) {
         if (!file.type.startsWith("image/")) throw new Error("Tệp hình ảnh không hợp lệ.");
         if (file.size > 3 * 1024 * 1024) throw new Error("Mỗi ảnh hoặc GIF cần nhỏ hơn 3 MB.");
@@ -392,8 +415,8 @@
       const mood = $("mood-select").value;
       let entryId = existing?.id;
       if (!entryId) {
-        // Database tự gán author_id, week_key, unlock_at theo tài khoản và giờ máy chủ.
-        const { data, error } = await db.from("journal_entries").insert({ body: text, mood }).select("id").single();
+        // Database tự gán author_id và tính week_key, unlock_at từ entry_date.
+        const { data, error } = await db.from("journal_entries").insert({ body: text, mood, entry_date: entryDate }).select("id").single();
         if (error) throw error;
         entryId = data.id;
       }
@@ -412,8 +435,9 @@
       if (error) throw error;
       uploaded.length = 0;
       selectedImages = []; selectedAudio = null; recordedAudio = null; selectedStickers = []; if (selectedAudioUrl) URL.revokeObjectURL(selectedAudioUrl); if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl); selectedAudioUrl = null; recordedAudioUrl = null; $("image-files").value = ""; $("audio-file").value = ""; $("media-preview").innerHTML = "";
+      if (!existing) weekOffset = Math.min(0, offsetForDate(entryDate));
       await reload();
-      notify(existing ? "Đã cập nhật bài viết." : "Đã đăng bài mới.");
+      notify(existing ? "Đã cập nhật bài viết." : weekOffset === 0 ? "Đã đăng bài mới." : `Đã đăng bài cho tuần ${weekOfDateKey(entryDate)}; bài hiện ngay cho đối phương.`);
     } catch (error) {
       console.error("Lưu nhật ký thất bại:", error);
       if (uploaded.length) await db.storage.from(MEDIA_BUCKET).remove(uploaded);
@@ -505,6 +529,7 @@
   $("next-week").addEventListener("click", () => { if (weekOffset < 0) weekOffset++; refresh(); });
   $("sign-out").addEventListener("click", async () => { await db.auth.signOut(); location.reload(); });
   $("cancel-edit").addEventListener("click", () => renderComposer(weekKey(currentWeekDate())));
+  $("entry-date").addEventListener("input", updateComposeWeekTag);
   $("next-prompt").addEventListener("click", () => { promptIndex = (promptIndex + 1) % prompts.length; $("prompt-text").textContent = prompts[promptIndex]; });
   $("prompt-text").textContent = prompts[promptIndex];
   ["search-input", "search-mood", "search-year"].forEach(id => $(id).addEventListener("input", renderSearch));
