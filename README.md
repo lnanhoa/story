@@ -31,9 +31,14 @@ Postgres RLS + Storage).
 
 ## Deploy
 
-Netlify/Vercel/GitHub Pages: đặt thư mục publish là `public/`, không cần
-lệnh build. Sau đó cập nhật **Authentication → URL Configuration → Site URL**
-trong Supabase thành domain thật.
+GitHub Pages: workflow `.github/workflows/pages.yml` tự deploy thư mục
+`public/` mỗi khi push lên `main`. Lần đầu vào **Settings → Pages → Source**
+chọn **GitHub Actions**. Trang chạy ở https://lnanhoa.github.io/story/.
+
+Netlify/Vercel: đặt thư mục publish là `public/`, không cần lệnh build.
+
+Sau khi có domain, cập nhật **Authentication → URL Configuration → Site URL**
+trong Supabase thành domain đó.
 
 ## Bảo mật
 
