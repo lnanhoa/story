@@ -42,7 +42,7 @@ trong Supabase thành domain đó.
 
 ## Bảo mật
 
-- `public/js/config.js` chỉ chứa giá trị công khai. Không commit
+- `js/config.js` chỉ chứa giá trị công khai. Không commit
   `service_role` key, database password hay mật khẩu tài khoản.
 - Quyền đọc/sửa do RLS trong `supabase/migrations/` cưỡng chế, không phụ
   thuộc giao diện.
