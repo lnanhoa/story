@@ -9,7 +9,7 @@ Quyền đọc và chỉnh sửa dựa trên tác giả và tuần ISO-8601 củ
 
 ### A. Cấu trúc dữ liệu (Database)
 *   **Thời gian tạo (`created_at`)**: Lưu chính xác ngày, giờ, phút viết bài (Chuẩn UTC).
-*   **Tuần viết (`week_key`)**: Mỗi người có một bài nhật ký cho mỗi tuần ISO-8601. Tuần bắt đầu vào thứ Hai theo `Asia/Ho_Chi_Minh`.
+*   **Tuần viết (`week_key`)**: Mỗi người viết được nhiều bài trong ngày/tuần; các bài được gom theo tuần ISO-8601. Tuần bắt đầu vào thứ Hai theo `Asia/Ho_Chi_Minh`.
 *   **ID người viết (`author_id`)**: Phân biệt rõ ràng bài viết là của User A hay User B.
 
 ### B. Logic kiểm tra điều kiện (Backend API)
