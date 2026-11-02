@@ -6,7 +6,7 @@ Dùng file [`supabase/migrations/20261102000000_init_journal.sql`](../supabase/m
 |---|---|---|
 | Hòa | `member` | Viết/sửa bài tuần hiện tại; đọc bài June sau 00:00 thứ Hai GMT+7 |
 | June | `member` | Như Hòa, ngược lại |
-| Admin | `admin` | Xem trạng thái bài (tuần, giờ mở) qua `admin_entry_status()`; không đọc nội dung |
+| Admin | `admin` | Chỉ đọc toàn bộ bài và media của cả hai (kể cả bài chưa mở); không sửa được |
 
 Tài khoản đăng nhập supabase.com (chủ project) là tài khoản riêng, có quyền cao
 nhất, phải bật MFA. Không dùng nó làm tài khoản Admin trong app.
@@ -65,8 +65,8 @@ Câu `select` cuối phải ra đúng 3 dòng.
 Sau khi frontend nối Supabase, đăng nhập lần lượt từng người:
 - Hòa viết bài → June không thấy nội dung trước 00:00 thứ Hai.
 - Sau giờ mở: June đọc được, không sửa được; Hòa cũng không sửa được nữa.
-- Admin: đọc `journal_entries` trả về rỗng; gọi `admin_entry_status()` chỉ thấy
-  tuần/giờ mở.
+- Admin: đọc được mọi bài của cả hai (sau khi chạy migration
+  `20261102010000_admin_read_all_entries.sql`), không sửa được.
 
 ---
 

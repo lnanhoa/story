@@ -185,7 +185,7 @@
       if (!visibleTo(entry, currentUser)) {
         return `<article class="card entry-card locked-entry"><div class="card-head"><div><h2 class="card-title">${person.emoji} ${person.name}</h2><p class="card-subtitle">Đang đợi đối phương...</p></div><span class="mood-tag">⌑ Riêng tư</span></div><div class="entry-body">Bài viết sẽ tự mở ${fmtDate(unlock, { day: "numeric", month: "long" })} lúc 00:00 (GMT+7).</div></article>`;
       }
-      const media = entry.media?.length ? `<div class="media-preview">${entry.media.map(item => item.type === "image" ? `<img src="${item.data}" alt="Ảnh nhật ký">` : item.type === "sticker" ? `<span class="sticker-preview" aria-label="Sticker">${escapeHtml(item.data)}</span>` : `<audio class="entry-audio" controls src="${item.data}" aria-label="Voice chat"></audio>`).join("")}</div>` : "";
+      const media = mediaMarkup(entry);
       const editable = mine && weekOffset === 0;
       const action = editable ? `<button class="tiny-button" data-edit="${user}">Chỉnh sửa bài tuần này</button>` : `<span class="entry-date">${mine ? "Bài của bạn · chỉ đọc" : "Đã mở khóa · chỉ đọc"}</span>`;
       return `<article class="card entry-card"><div class="card-head"><div><h2 class="card-title">${person.emoji} ${person.name}</h2><p class="entry-date">Đã viết lúc ${fmtDate(new Date(entry.createdAt), { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}</p></div><span class="mood-tag">${entry.mood} ${moodLabel(entry.mood)}</span></div><div class="entry-body">${escapeHtml(entry.text)}${media}</div><div class="entry-footer">${action}</div></article>`;
@@ -199,6 +199,9 @@
       $("save-entry").dataset.edit = entry?.id || "";
       $("entry-text").focus();
     }));
+  }
+  function mediaMarkup(entry) {
+    return entry.media?.length ? `<div class="media-preview">${entry.media.map(item => item.type === "image" ? `<img src="${item.data}" alt="Ảnh nhật ký">` : item.type === "sticker" ? `<span class="sticker-preview" aria-label="Sticker">${escapeHtml(item.data)}</span>` : `<audio class="entry-audio" controls src="${item.data}" aria-label="Voice chat"></audio>`).join("")}</div>` : "";
   }
   function moodLabel(mood) { return ({ "😊":"Vui vẻ", "🥰":"Biết ơn", "😌":"Bình yên", "😔":"Hơi buồn", "😵‍💫":"Áp lực", "🤍":"Cần ôm" })[mood] || ""; }
   function renderComposer(week) {
@@ -510,15 +513,27 @@
     $("current-name").textContent = currentProfile.display_name;
     $("current-avatar").textContent = "⚙";
     $("week-caption").textContent = "QUẢN TRỊ";
-    $("week-heading").textContent = "Trạng thái nhật ký";
-    $("week-dates").textContent = "Chỉ xem tuần và giờ mở, không xem nội dung bài.";
+    $("week-heading").textContent = "Toàn bộ nhật ký";
+    $("week-dates").textContent = "Admin chỉ đọc, xem được cả bài chưa tới giờ mở.";
     ["compose-card", "week-notice", "readonly-notice"].forEach(id => $(id).classList.add("hidden"));
     document.querySelector(".week-control").classList.add("hidden");
     document.querySelector(".right-column").classList.add("hidden");
-    const { data, error } = await db.rpc("admin_entry_status");
-    if (error) { console.error("Tải trạng thái thất bại:", error); return notify(error.message || "Không tải được trạng thái."); }
-    const rows = data.map(row => `<div class="history-item"><strong>${escapeHtml(row.author_name)} · ${escapeHtml(row.week_key)}</strong><span>Viết lúc ${fmtDate(new Date(row.created_at), { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} · ${row.is_unlocked ? "Đã mở" : `Mở ${fmtDate(new Date(row.unlock_at), { day: "numeric", month: "long" })}`}</span></div>`).join("");
-    $("entries").innerHTML = `<article class="card"><div class="card-head"><div><h2 class="card-title">Bài đã viết</h2><p class="card-subtitle">${data.length} bài</p></div></div><div class="history-list">${rows || `<div class="history-empty">Chưa có bài nào.</div>`}</div></article>`;
+    document.querySelector(".layout").style.gridTemplateColumns = "minmax(0, 1fr)";
+    try { await loadEntries(); }
+    catch (error) { console.error("Tải nhật ký thất bại:", error); return notify(error.message || "Không tải được nhật ký."); }
+    const weeks = [...new Set(state.entries.map(entryWeek))].sort().reverse();
+    if (!weeks.length) { $("entries").innerHTML = `<div class="history-empty">Chưa có bài nào.</div>`; return; }
+    $("entries").style.gridTemplateColumns = "minmax(0, 1fr)";
+    $("entries").innerHTML = weeks.map(week => {
+      const cards = ["a", "b"].map(user => {
+        const entry = entryFor(week, user);
+        const person = people[user];
+        if (!entry) return `<article class="card entry-card empty-entry"><div class="card-head"><div><h2 class="card-title">${person.emoji} ${escapeHtml(person.name)}</h2><p class="card-subtitle">Chưa viết tuần này.</p></div></div></article>`;
+        const status = new Date(entry.unlockAt) <= new Date() ? "Đã mở" : `Mở ${fmtDate(new Date(entry.unlockAt), { day: "numeric", month: "long" })}`;
+        return `<article class="card entry-card"><div class="card-head"><div><h2 class="card-title">${person.emoji} ${escapeHtml(person.name)}</h2><p class="entry-date">Viết lúc ${fmtDate(new Date(entry.createdAt), { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} · ${status}</p></div><span class="mood-tag">${entry.mood} ${moodLabel(entry.mood)}</span></div><div class="entry-body">${escapeHtml(entry.text)}${mediaMarkup(entry)}</div></article>`;
+      }).join("");
+      return `<section><div class="section-heading"><h2>${escapeHtml(week)}</h2></div><div class="timeline-strip">${cards}</div></section>`;
+    }).join("");
   }
   async function start(user) {
     try {
