@@ -13,7 +13,7 @@
     "Điều gì giúp bạn thấy bình yên trước khi ngủ?"
   ];
   const requirements = [
-    ["Mỗi người viết một bài nhật ký cho từng tuần", true],
+    ["Mỗi người viết nhiều bài trong ngày, trong tuần", true],
     ["Bài tuần này ẩn với người kia đến thứ Hai tiếp theo", true],
     ["Bài tuần cũ mở cho đối phương và chuyển thành chỉ đọc", true],
     ["Quyền mở khóa được bảo vệ thật ở backend", true],
@@ -127,9 +127,15 @@
   function entryWeek(entry) {
     return entry.week || weekKey(new Date(`${entryDateKey(entry)}T00:00:00Z`));
   }
-  function entryFor(week, user) {
+  function entriesFor(week, user) {
     return state.entries.filter(entry => entryWeek(entry) === week && entry.author === user)
-      .sort((left, right) => new Date(left.createdAt) - new Date(right.createdAt))[0];
+      .sort((left, right) => new Date(left.createdAt) - new Date(right.createdAt));
+  }
+  function editingEntry() {
+    return state.entries.find(entry => entry.id === $("save-entry").dataset.edit) || null;
+  }
+  function composerMedia() {
+    return editingEntry()?.media || [];
   }
   function unlockAt(week) {
     const [year, weekNo] = week.split("-W").map(Number);
@@ -174,37 +180,56 @@
   }
   function renderEntries(week, unlock) {
     const container = $("entries");
-    const cards = ["a", "b"].map(user => {
-      const entry = entryFor(week, user);
+    const columns = ["a", "b"].map(user => {
       const person = people[user];
       const mine = user === currentUser;
-      if (!entry) {
-        const lockedEmpty = !mine && weekOffset === 0;
-        return `<article class="card entry-card ${lockedEmpty ? "locked-entry" : "empty-entry"}"><div class="card-head"><div><h2 class="card-title">${person.emoji} ${person.name}</h2><p class="card-subtitle">${lockedEmpty ? "Bài viết đang được giữ riêng tư." : "Chưa có bài nhật ký tuần này."}</p></div><span class="mood-tag">${lockedEmpty ? "⌑ Đang viết" : "✧ Còn trống"}</span></div><div class="entry-body">${lockedEmpty ? "Nội dung sẽ chỉ được mở cho bạn vào thứ Hai tuần sau." : "Một tuần mới đang chờ được ghi lại."}</div></article>`;
+      const entries = entriesFor(week, user).filter(entry => visibleTo(entry, currentUser));
+      const title = `<h2 class="column-title">${person.emoji} ${escapeHtml(person.name)}<span>${entries.length ? `${entries.length} bài` : ""}</span></h2>`;
+      if (!entries.length) {
+        // Bài của đối phương trong tuần hiện tại không được máy chủ trả về.
+        const locked = !mine && new Date() < unlock;
+        const card = `<article class="card entry-card ${locked ? "locked-entry" : "empty-entry"}"><div class="card-head"><div><p class="card-subtitle">${locked ? "Bài viết đang được giữ riêng tư." : "Chưa có bài nhật ký tuần này."}</p></div><span class="mood-tag">${locked ? "⌑ Riêng tư" : "✧ Còn trống"}</span></div><div class="entry-body">${locked ? `Các bài sẽ tự mở ${fmtDate(unlock, { day: "numeric", month: "long" })} lúc 00:00 (GMT+7).` : "Một tuần mới đang chờ được ghi lại."}</div></article>`;
+        return `<div class="entry-column">${title}${card}</div>`;
       }
-      if (!visibleTo(entry, currentUser)) {
-        return `<article class="card entry-card locked-entry"><div class="card-head"><div><h2 class="card-title">${person.emoji} ${person.name}</h2><p class="card-subtitle">Đang đợi đối phương...</p></div><span class="mood-tag">⌑ Riêng tư</span></div><div class="entry-body">Bài viết sẽ tự mở ${fmtDate(unlock, { day: "numeric", month: "long" })} lúc 00:00 (GMT+7).</div></article>`;
-      }
-      const media = mediaMarkup(entry);
       const editable = mine && weekOffset === 0;
-      const action = editable ? `<button class="tiny-button" data-edit="${user}">Chỉnh sửa bài tuần này</button>` : `<span class="entry-date">${mine ? "Bài của bạn · chỉ đọc" : "Đã mở khóa · chỉ đọc"}</span>`;
-      return `<article class="card entry-card"><div class="card-head"><div><h2 class="card-title">${person.emoji} ${person.name}</h2><p class="entry-date">Đã viết lúc ${fmtDate(new Date(entry.createdAt), { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}</p></div><span class="mood-tag">${entry.mood} ${moodLabel(entry.mood)}</span></div><div class="entry-body">${escapeHtml(entry.text)}${media}</div><div class="entry-footer">${action}</div></article>`;
+      const cards = entries.map(entry => {
+        const action = editable
+          ? `<button class="tiny-button" data-edit="${entry.id}">Chỉnh sửa</button><button class="tiny-button" data-delete="${entry.id}">Xóa</button>`
+          : `<span class="entry-date">${mine ? "Bài của bạn · chỉ đọc" : "Đã mở khóa · chỉ đọc"}</span>`;
+        return `<article class="card entry-card"><div class="card-head"><div><p class="entry-date">${fmtDate(new Date(entry.createdAt), { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}</p></div><span class="mood-tag">${entry.mood} ${moodLabel(entry.mood)}</span></div><div class="entry-body">${escapeHtml(entry.text)}${mediaMarkup(entry)}</div><div class="entry-footer">${action}</div></article>`;
+      }).join("");
+      return `<div class="entry-column">${title}${cards}</div>`;
     });
-    $("entries").innerHTML = cards.join("");
+    container.innerHTML = columns.join("");
     container.querySelectorAll("[data-edit]").forEach(button => button.addEventListener("click", () => {
-      const entry = entryFor(week, currentUser);
-      $("entry-text").value = entry?.text || "";
-      $("mood-select").value = entry?.mood || "😊";
-      renderMediaPreview(entry?.media || []);
-      $("save-entry").dataset.edit = entry?.id || "";
+      const entry = state.entries.find(item => item.id === button.dataset.edit);
+      if (!entry) return;
+      renderComposer(week, entry);
+      $("compose-card").scrollIntoView({ behavior: "smooth", block: "start" });
       $("entry-text").focus();
     }));
+    container.querySelectorAll("[data-delete]").forEach(button => button.addEventListener("click", () => deleteEntry(button.dataset.delete)));
+  }
+  async function deleteEntry(id) {
+    const entry = state.entries.find(item => item.id === id);
+    if (!entry || !confirm("Xóa bài viết này? Không thể hoàn tác.")) return;
+    // Xóa tệp trước: policy Storage cần bài còn tồn tại để cho phép xóa.
+    const paths = entry.media.filter(item => item.path).map(item => item.path);
+    if (paths.length) {
+      const { error: removeError } = await db.storage.from(MEDIA_BUCKET).remove(paths);
+      if (removeError) console.error("Không xóa được tệp trên Storage:", removeError);
+    }
+    const { error } = await db.from("journal_entries").delete().eq("id", id);
+    if (error) { console.error("Xóa bài thất bại:", error); return notify(error.message || "Không thể xóa bài viết."); }
+    if ($("save-entry").dataset.edit === id) $("save-entry").dataset.edit = "";
+    notify("Đã xóa bài viết.");
+    await reload();
   }
   function mediaMarkup(entry) {
     return entry.media?.length ? `<div class="media-preview">${entry.media.map(item => item.type === "image" ? `<img src="${item.data}" alt="Ảnh nhật ký">` : item.type === "sticker" ? `<span class="sticker-preview" aria-label="Sticker">${escapeHtml(item.data)}</span>` : `<audio class="entry-audio" controls src="${item.data}" aria-label="Voice chat"></audio>`).join("")}</div>` : "";
   }
   function moodLabel(mood) { return ({ "😊":"Vui vẻ", "🥰":"Biết ơn", "😌":"Bình yên", "😔":"Hơi buồn", "😵‍💫":"Áp lực", "🤍":"Cần ôm" })[mood] || ""; }
-  function renderComposer(week) {
+  function renderComposer(week, entry = null) {
     if (mediaRecorder?.state === "recording") {
       discardRecording = true;
       mediaRecorder.stop();
@@ -225,11 +250,13 @@
     document.querySelectorAll("[data-sticker]").forEach(button => button.classList.remove("selected"));
     $("image-files").value = "";
     $("audio-file").value = "";
-    const entry = entryFor(week, currentUser);
     $("entry-text").value = entry?.text || "";
     $("mood-select").value = entry?.mood || "😊";
-    $("save-entry").textContent = entry ? "Cập nhật nhật ký" : "Lưu nhật ký";
+    $("save-entry").textContent = entry ? "Cập nhật bài này" : "Đăng bài mới";
     $("save-entry").dataset.edit = entry?.id || "";
+    $("compose-title").textContent = entry ? `Sửa bài ${fmtDate(new Date(entry.createdAt), { weekday: "long", hour: "2-digit", minute: "2-digit" })}` : "Viết bài mới";
+    $("cancel-edit").classList.toggle("hidden", !entry);
+    $("compose-week-tag").textContent = week;
     renderMediaPreview(entry?.media || []);
   }
   function renderMediaPreview(saved = []) {
@@ -250,7 +277,7 @@
       return `<span class="attachment-item">${content}${remove}</span>`;
     }).join("");
     $("media-preview").querySelectorAll("[data-remove-media]").forEach(button => button.addEventListener("click", async () => {
-      const entry = entryFor(weekKey(currentWeekDate()), currentUser);
+      const entry = editingEntry();
       if (!entry || weekOffset !== 0) return;
       const media = entry.media.filter((_, index) => index !== Number(button.dataset.removeMedia));
       const removed = entry.media[Number(button.dataset.removeMedia)];
@@ -260,7 +287,7 @@
         const { error: removeError } = await db.storage.from(MEDIA_BUCKET).remove([removed.path]);
         if (removeError) console.error("Không xóa được tệp trên Storage:", removeError);
       }
-      await reload();
+      await reload(entry.id);
     }));
   }
   function renderChecklist() {
@@ -301,7 +328,7 @@
   function renderMemory() {
     const target = new Date(currentWeekDate()); target.setUTCFullYear(target.getUTCFullYear() - 1);
     const key = weekKey(target);
-    const entries = ["a", "b"].map(user => entryFor(key, user)).filter(entry => visibleTo(entry, currentUser));
+    const entries = ["a", "b"].flatMap(user => entriesFor(key, user)).filter(entry => visibleTo(entry, currentUser)).slice(0, 6);
     const memory = $("memory-content");
     if (!entries.length) { memory.className = "history-empty"; memory.textContent = `Chưa có kỷ niệm vào tuần này từ một năm trước (${key}). Những điều đẹp đẽ rồi sẽ đến.`; return; }
     memory.className = "history-list";
@@ -324,10 +351,12 @@
     displayWeek(currentWeekDate());
     renderChart(); renderMemory(); renderChecklist(); renderSearch();
   }
-  async function reload() {
+  async function reload(editId = "") {
     try { await loadEntries(); }
     catch (error) { console.error("Tải nhật ký thất bại:", error); notify(error.message || "Không tải được nhật ký."); }
     populateYears(); refresh();
+    const editing = state.entries.find(entry => entry.id === editId);
+    if (editing) renderComposer(weekKey(currentWeekDate()), editing);
   }
   async function uploadMedia(entryId, file, index) {
     const ext = (file.name.split(".").pop() || "bin").replace(/[^a-z0-9]/gi, "").slice(0, 8) || "bin";
@@ -345,7 +374,7 @@
     const button = $("save-entry"); button.disabled = true;
     const uploaded = [];
     try {
-      const existing = entryFor(week, currentUser);
+      const existing = editingEntry();
       const savedMedia = existing?.media || [];
       const savedImages = savedMedia.filter(item => item.type === "image").length;
       if (savedImages + selectedImages.length > 3) throw new Error("Mỗi tuần chỉ đính kèm tối đa 3 ảnh hoặc GIF.");
@@ -384,7 +413,7 @@
       uploaded.length = 0;
       selectedImages = []; selectedAudio = null; recordedAudio = null; selectedStickers = []; if (selectedAudioUrl) URL.revokeObjectURL(selectedAudioUrl); if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl); selectedAudioUrl = null; recordedAudioUrl = null; $("image-files").value = ""; $("audio-file").value = ""; $("media-preview").innerHTML = "";
       await reload();
-      notify("Đã lưu bài nhật ký tuần này.");
+      notify(existing ? "Đã cập nhật bài viết." : "Đã đăng bài mới.");
     } catch (error) {
       console.error("Lưu nhật ký thất bại:", error);
       if (uploaded.length) await db.storage.from(MEDIA_BUCKET).remove(uploaded);
@@ -394,14 +423,14 @@
   });
   $("image-files").addEventListener("change", event => {
     selectedImages = Array.from(event.target.files || []);
-    renderMediaPreview(entryFor(weekKey(currentWeekDate()), currentUser)?.media || []);
+    renderMediaPreview(composerMedia());
   });
   $("audio-file").addEventListener("change", event => {
     selectedAudio = event.target.files?.[0] || null;
     if (selectedAudio) recordedAudio = null;
     if (selectedAudioUrl) URL.revokeObjectURL(selectedAudioUrl);
     selectedAudioUrl = selectedAudio ? URL.createObjectURL(selectedAudio) : null;
-    renderMediaPreview(entryFor(weekKey(currentWeekDate()), currentUser)?.media || []);
+    renderMediaPreview(composerMedia());
   });
   $("record-button").addEventListener("click", async () => {
     if (mediaRecorder?.state === "recording") {
@@ -415,7 +444,7 @@
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       return notify("Trình duyệt này không hỗ trợ ghi âm. Bạn có thể tải lên tệp voice.");
     }
-    if (selectedAudio || entryFor(weekKey(currentWeekDate()), currentUser)?.media?.some(item => item.type === "audio")) {
+    if (selectedAudio || composerMedia().some(item => item.type === "audio")) {
       return notify("Bài tuần này đã có voice chat. Xóa tệp hiện tại trước khi ghi âm mới.");
     }
     try {
@@ -445,7 +474,7 @@
           selectedAudioUrl = null;
           $("audio-file").value = "";
           $("record-status").textContent = "Đã ghi voice · nghe thử bên dưới";
-          renderMediaPreview(entryFor(weekKey(currentWeekDate()), currentUser)?.media || []);
+          renderMediaPreview(composerMedia());
         }
       }, { once: true });
       mediaRecorder.start();
@@ -470,11 +499,12 @@
     else if (selectedStickers.length < 3) selectedStickers.push(sticker);
     else return notify("Mỗi tuần chọn tối đa 3 sticker.");
     button.classList.toggle("selected", selectedStickers.includes(sticker));
-    renderMediaPreview(entryFor(weekKey(currentWeekDate()), currentUser)?.media || []);
+    renderMediaPreview(composerMedia());
   }));
   $("prev-week").addEventListener("click", () => { weekOffset--; refresh(); });
   $("next-week").addEventListener("click", () => { if (weekOffset < 0) weekOffset++; refresh(); });
   $("sign-out").addEventListener("click", async () => { await db.auth.signOut(); location.reload(); });
+  $("cancel-edit").addEventListener("click", () => renderComposer(weekKey(currentWeekDate())));
   $("next-prompt").addEventListener("click", () => { promptIndex = (promptIndex + 1) % prompts.length; $("prompt-text").textContent = prompts[promptIndex]; });
   $("prompt-text").textContent = prompts[promptIndex];
   ["search-input", "search-mood", "search-year"].forEach(id => $(id).addEventListener("input", renderSearch));
@@ -526,11 +556,14 @@
     $("entries").style.gridTemplateColumns = "minmax(0, 1fr)";
     $("entries").innerHTML = weeks.map(week => {
       const cards = ["a", "b"].map(user => {
-        const entry = entryFor(week, user);
+        const entries = entriesFor(week, user);
         const person = people[user];
-        if (!entry) return `<article class="card entry-card empty-entry"><div class="card-head"><div><h2 class="card-title">${person.emoji} ${escapeHtml(person.name)}</h2><p class="card-subtitle">Chưa viết tuần này.</p></div></div></article>`;
-        const status = new Date(entry.unlockAt) <= new Date() ? "Đã mở" : `Mở ${fmtDate(new Date(entry.unlockAt), { day: "numeric", month: "long" })}`;
-        return `<article class="card entry-card"><div class="card-head"><div><h2 class="card-title">${person.emoji} ${escapeHtml(person.name)}</h2><p class="entry-date">Viết lúc ${fmtDate(new Date(entry.createdAt), { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} · ${status}</p></div><span class="mood-tag">${entry.mood} ${moodLabel(entry.mood)}</span></div><div class="entry-body">${escapeHtml(entry.text)}${mediaMarkup(entry)}</div></article>`;
+        const title = `<h2 class="column-title">${person.emoji} ${escapeHtml(person.name)}<span>${entries.length} bài</span></h2>`;
+        if (!entries.length) return `<div class="entry-column">${title}<article class="card entry-card empty-entry"><div class="card-head"><p class="card-subtitle">Chưa viết tuần này.</p></div></article></div>`;
+        return `<div class="entry-column">${title}${entries.map(entry => {
+          const status = new Date(entry.unlockAt) <= new Date() ? "Đã mở" : `Mở ${fmtDate(new Date(entry.unlockAt), { day: "numeric", month: "long" })}`;
+          return `<article class="card entry-card"><div class="card-head"><div><p class="entry-date">${fmtDate(new Date(entry.createdAt), { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} · ${status}</p></div><span class="mood-tag">${entry.mood} ${moodLabel(entry.mood)}</span></div><div class="entry-body">${escapeHtml(entry.text)}${mediaMarkup(entry)}</div></article>`;
+        }).join("")}</div>`;
       }).join("");
       return `<section><div class="section-heading"><h2>${escapeHtml(week)}</h2></div><div class="timeline-strip">${cards}</div></section>`;
     }).join("");

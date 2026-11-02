@@ -206,6 +206,10 @@ h1 { margin-bottom: 7px; font: 600 clamp(28px, 4vw, 39px)/1.15 "Playfair Display
 .section-heading h2 { font: 600 21px "Playfair Display", serif; margin: 0; }
 .section-heading span { font-size: 10px; color: var(--muted); }
 .timeline-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.entry-column { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.column-title { margin: 0 4px 2px; font: 600 17px "Playfair Display", serif; }
+.column-title span { color: var(--muted); font: 400 11px "DM Sans", sans-serif; margin-left: 6px; }
+#cancel-edit { margin-top: 8px; }
 @media (max-width: 980px) {
   .app { grid-template-columns: 210px minmax(0,1fr); }
   main { padding-left: 26px; padding-right: 26px; }
