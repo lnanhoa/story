@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#081225">
+  <title>Chúng mình — Nhật ký đôi</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">♡</div>
+        <div><div class="brand-name">Chúng mình</div><div class="brand-sub">A little space for two</div></div>
+      </div>
+      <div class="couple-card">
+        <div class="couple-label">Không gian của hai bạn</div>
+        <div class="avatars"><span class="avatar a">🌼</span><span class="avatar b">🌿</span></div>
+        <div class="couple-name">Hòa & June</div>
+      </div>
+      <div class="nav-title">Nhật ký cá nhân</div>
+      <nav class="nav" aria-label="Điều hướng chính">
+      <button class="active" data-section="timeline"><span class="nav-icon">▤</span>Nhật ký của tôi</button>
+      <button data-section="moods"><span class="nav-icon">◉</span>Tâm trạng của tôi</button>
+      <button data-section="memories"><span class="nav-icon">✧</span>Kỷ niệm của tôi</button>
+      <button data-section="checklist"><span class="nav-icon">✓</span>Yêu cầu đã làm</button>
+      </nav>
+      <div class="sidebar-bottom">
+      <div class="privacy-note"><strong>✦ Một góc yên tĩnh</strong>Bài tuần này mở cho người kia vào thứ Hai tuần sau. Quyền đọc được Supabase kiểm tra ở máy chủ.</div>
+      <button class="outline-button" id="sign-out" type="button">Đăng xuất</button>
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div class="date-label" id="today-label"></div>
+        <div class="top-actions">
+          <button class="outline-button" id="export-button" title="In hoặc lưu thành PDF">↗ Xuất nhật ký</button>
+          <button class="icon-button" id="app-lock-button" title="Khóa ứng dụng">⌑</button>
+          <div class="profile-pill"><span class="avatar a" id="current-avatar">🌼</span><span id="current-name">Hòa</span></div>
+        </div>
+      </div>
+
+      <section id="timeline">
+        <div class="hero">
+          <div>
+            <div class="eyebrow" id="week-caption">NHẬT KÝ RIÊNG CỦA HÒA</div>
+            <h1 id="week-heading">Tuần của tôi</h1>
+            <p id="week-dates"></p>
+          </div>
+          <div class="week-control">
+            <button id="prev-week" aria-label="Tuần trước">‹</button>
+            <span id="week-number"></span>
+            <button id="next-week" aria-label="Tuần tiếp theo">›</button>
+          </div>
+        </div>
+        <div class="notice" id="week-notice">
+          <span class="notice-icon">✦</span>
+          <div class="notice-copy"><strong id="notice-title">Viết vài dòng trước khi ngủ</strong><span id="notice-detail">Bài tuần này chỉ người viết xem được cho đến 00:00 thứ Hai tuần sau (GMT+7).</span></div>
+          <div class="countdown" id="countdown"></div>
+        </div>
+        <div class="notice hidden" id="readonly-notice">
+          <span class="notice-icon">⌑</span>
+          <div class="notice-copy"><strong>Tuần đã khép lại · đã chia sẻ</strong><span>Bạn vẫn đọc lại bài của mình và bài của đối phương. Các bài cũ chỉ đọc.</span></div>
+        </div>
+
+        <div class="layout">
+          <div class="left-column">
+            <div class="timeline-strip" id="entries"></div>
+            <article class="card compose" id="compose-card">
+              <div class="compose-top">
+                <div><h2>Khép lại tuần này</h2><p class="card-subtitle">Viết cho riêng mình; người kia sẽ đọc khi tuần khép lại.</p></div>
+                <span class="mood-tag" id="compose-week-tag">Tuần này</span>
+              </div>
+              <textarea id="entry-text" maxlength="5000" placeholder="Tuần này của bạn thế nào? Ghi lại những điều muốn chia sẻ khi đến lúc..."></textarea>
+              <div class="form-row">
+                <select class="select-mood" id="mood-select" aria-label="Chọn tâm trạng">
+                  <option value="😊">😊 Vui vẻ</option><option value="🥰">🥰 Biết ơn</option><option value="😌">😌 Bình yên</option><option value="😔">😔 Hơi buồn</option><option value="😵‍💫">😵‍💫 Áp lực</option><option value="🤍">🤍 Cần ôm</option>
+                </select>
+                <label class="file-label">▧ Thêm ảnh/GIF <input type="file" id="image-files" accept="image/*" multiple></label>
+                <label class="file-label">♫ Tải voice <input type="file" id="audio-file" accept="audio/*"></label>
+                <button class="save-button" id="save-entry">Lưu nhật ký</button>
+              </div>
+              <div class="attachment-tools">
+                <button class="record-button" id="record-button" type="button">● Thu voice</button>
+                <span class="record-status" id="record-status" role="status">Tối đa 60 giây</span>
+              </div>
+              <div class="sticker-picker" aria-label="Chọn sticker">
+                <span>Sticker</span>
+                <button class="sticker-button" type="button" data-sticker="🌙" aria-label="Sticker trăng">🌙</button>
+                <button class="sticker-button" type="button" data-sticker="⭐" aria-label="Sticker sao">⭐</button>
+                <button class="sticker-button" type="button" data-sticker="💫" aria-label="Sticker sao băng">💫</button>
+                <button class="sticker-button" type="button" data-sticker="☁️" aria-label="Sticker mây">☁️</button>
+                <button class="sticker-button" type="button" data-sticker="🐈" aria-label="Sticker mèo">🐈</button>
+                <button class="sticker-button" type="button" data-sticker="🫶" aria-label="Sticker yêu thương">🫶</button>
+              </div>
+              <div class="media-preview" id="media-preview"></div>
+            </article>
+          </div>
+
+          <aside class="right-column">
+            <article class="prompt-card">
+              <div class="eyebrow">GỢI Ý CHO TỐI NAY</div>
+              <h3>Một câu hỏi nhỏ cho bạn</h3>
+              <p id="prompt-text"></p>
+              <button id="next-prompt">Gợi ý câu khác ↗</button>
+            </article>
+            <article class="card chart-card" id="moods">
+              <div class="card-head"><div><h2 class="card-title">Tâm trạng của tôi</h2><p class="card-subtitle">Một năm nhìn lại, dịu dàng thôi.</p></div><span class="mood-tag">12 tháng</span></div>
+              <div class="chart-wrap"><svg id="mood-chart" viewBox="0 0 300 130" role="img" aria-label="Biểu đồ tâm trạng cá nhân"></svg></div>
+              <div class="chart-legend"><span><i class="legend-dot" style="background:var(--sage)"></i>Riêng tư</span></div>
+            </article>
+            <article class="card search-card">
+              <h3>Tìm lại kỷ niệm</h3>
+              <input class="search-input" id="search-input" type="search" placeholder="Tìm theo từ khóa...">
+              <div class="search-options">
+                <select id="search-mood" aria-label="Lọc tâm trạng"><option value="">Mọi tâm trạng</option><option>😊</option><option>🥰</option><option>😌</option><option>😔</option><option>😵‍💫</option><option>🤍</option></select>
+                <select id="search-year" aria-label="Lọc năm"><option value="">Mọi năm</option></select>
+              </div>
+              <div id="search-results" class="history-list hidden"></div>
+            </article>
+            <article class="card checklist" id="checklist">
+              <h3>Yêu cầu đã làm</h3>
+              <p class="checklist-intro" id="checklist-progress"></p>
+              <div class="check-items" id="check-items"></div>
+              <p class="disclaimer">Dữ liệu lưu trên Supabase và được RLS bảo vệ; chưa có mã hóa đầu cuối nên chủ project Supabase vẫn có thể đọc dữ liệu.</p>
+            </article>
+            <article class="card history-card" id="memories">
+              <div class="card-head"><div><h2 class="card-title">Ngày này năm xưa</h2><p class="card-subtitle">Một kỷ niệm cũ tìm về.</p></div><span>✧</span></div>
+              <div id="memory-content" class="history-empty">Chưa có kỷ niệm vào tuần này từ một năm trước. Những điều đẹp đẽ rồi sẽ đến.</div>
+            </article>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast hidden" role="status"></div>
+  <div id="modal-root"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
