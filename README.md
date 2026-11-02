@@ -8,12 +8,12 @@ Postgres RLS + Storage).
 
 ```
 .
-├── public/                 # Trang web (deploy thư mục này)
-│   ├── index.html
-│   ├── css/styles.css
-│   └── js/
-│       ├── config.js       # Project URL + publishable key (công khai)
-│       └── app.js          # Logic giao diện, gọi Supabase
+├── index.html              # Trang web (GitHub Pages phục vụ từ thư mục gốc)
+├── css/styles.css
+├── js/
+│   ├── config.js           # Project URL + publishable key (công khai)
+│   └── app.js              # Logic giao diện, gọi Supabase
+├── .nojekyll               # Tắt Jekyll, phục vụ file tĩnh nguyên trạng
 ├── supabase/
 │   ├── migrations/         # Schema đang dùng (chạy theo thứ tự tên file)
 │   └── legacy/             # Schema ghép cặp cũ, không dùng
@@ -25,17 +25,17 @@ Postgres RLS + Storage).
 ## Chạy thử trên máy
 
 1. Cài đặt Supabase theo [docs/huong-dan-supabase.md](docs/huong-dan-supabase.md).
-2. Mở thư mục bằng VS Code, cài tiện ích **Live Server**, bấm **Go Live**
-   (đã cấu hình gốc là `public/`), trang chạy ở `http://localhost:5500`.
+2. Mở thư mục bằng VS Code, cài tiện ích **Live Server**, bấm **Go Live**,
+   trang chạy ở `http://localhost:5500`.
 3. Đăng nhập bằng một trong ba tài khoản.
 
 ## Deploy
 
-GitHub Pages: workflow `.github/workflows/pages.yml` tự deploy thư mục
-`public/` mỗi khi push lên `main`. Lần đầu vào **Settings → Pages → Source**
-chọn **GitHub Actions**. Trang chạy ở https://lnanhoa.github.io/story/.
+GitHub Pages: **Settings → Pages → Source: Deploy from a branch**, chọn
+nhánh `main`, thư mục `/ (root)`. Mỗi lần push lên `main` trang tự cập nhật
+tại https://lnanhoa.github.io/story/.
 
-Netlify/Vercel: đặt thư mục publish là `public/`, không cần lệnh build.
+Netlify/Vercel: thư mục publish là thư mục gốc, không cần lệnh build.
 
 Sau khi có domain, cập nhật **Authentication → URL Configuration → Site URL**
 trong Supabase thành domain đó.
